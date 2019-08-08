@@ -4,6 +4,7 @@ from .jni import *
 from .javap import *
 import json
 import os
+import pdb
 
 
 __all__ = [
@@ -85,6 +86,8 @@ def _javap_to_class(data, classpath=None):
 
     # parse the complete class
     clazz_full = JavaP.parse_class(classname, classpath)
+
+    pdb.set_trace()
 
     # parse the partial class
     clazz_partial = _nji_to_class(data)
