@@ -11,20 +11,18 @@ print("sizeof(JNINativeInterface):" + str(sizeof(JNINativeInterface())))
 
 print("JVM version:{}".format(hex(GetVersion())))
 
-ClassLoader_class = fromFullyQualifiedName("Ljava/lang/String;")
-if(ClassLoader_class):
-    print("Got ClassLoader_class")
-    for con in ClassLoader_class.getDeclaredConstructors():
-        con_name = con.getName()
-        fqn = "{}(".format(GetStringUTFChars(con_name, False))
-        types = con.getParameterTypes()
-        for i in range(len(types)):
-            if(i >= 1):
-                fqn = fqn + ", "
-            name = types[i].getCanonicalName()
-            fqn = fqn + GetStringUTFChars(name, False)
-        fqn = fqn + (")")
-        print(fqn)
+obj = fromFullyQualifiedName("Ljava/lang/String;")
+if(obj):
+    print("Got Obj")
+    print("Constructors:")
+    for con in obj.getDeclaredConstructors():
+        print(con.descriptor())
+    print("Methods:")
+    for meth in obj.getDeclaredMethods():
+        print(meth.descriptor())
+    print("Fields:")
+    for field in obj.getDeclaredFields():
+        print(str(field.getName()) + " " + field.descriptor())
 
 '''
 Object = jni.FindClass("Ljava/lang/Object;")

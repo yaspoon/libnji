@@ -1,4 +1,5 @@
 from ctypes import *
+import pdb
 
 #__all__ = ['JavaVMOption', 'JavaVMInitArgs', 'jobject', 'jclass', 'jthrowable', "jstring", "jarray", "jobjectArray", "jmethodID", "jfieldID", "jvalue", "JNINativeInterface", "JNIEnv", "Jni"]
 
@@ -282,8 +283,8 @@ JNINativeInterface._fields_ = [
             ("ReleaseStringChars", c_void_p), #166
             ("NewStringUTF", c_void_p), #167
             ("GetStringUTFLength", CFUNCTYPE(c_size_t, POINTER(JNIEnv), jstring)), #168
-            ("GetStringUTFChars", CFUNCTYPE(c_char_p, POINTER(JNIEnv), jstring, c_bool)), #169
-            ("ReleaseStringUTFChars", c_void_p), #170
+            ("GetStringUTFChars", CFUNCTYPE(POINTER(c_char), POINTER(JNIEnv), jstring, c_bool)), #169
+            ("ReleaseStringUTFChars", CFUNCTYPE(None, POINTER(JNIEnv), jstring, c_char_p)), #170
 
             ("GetArrayLength", CFUNCTYPE(c_size_t, POINTER(JNIEnv), jarray)), #171
             ("NewObjectArray", CFUNCTYPE(jobjectArray, POINTER(JNIEnv), c_size_t, jclass, jobject)), #172
@@ -435,7 +436,8 @@ def GetObjectArrayElement(array, index):
 
 def GetStringUTFChars(string, isCopy):
     init()
-    return Jni.jenv.GetStringUTFChars(Jni.p_jenv, string, isCopy)
+    c_str = Jni.jenv.GetStringUTFChars(Jni.p_jenv, string, isCopy)
+    return c_str
 
 def CallIntMethod(obj, method, *args):
     init()
@@ -444,3 +446,7 @@ def CallIntMethod(obj, method, *args):
 def CallBooleanMethod(obj, method, *args):
     init()
     return Jni.jenv.CallBooleanMethod(Jni.p_jenv, obj, method)
+
+def ReleaseStringUTFChars(string, c_str):
+    init()
+    Jni.jenv.ReleaseStringUTFChars(Jni.p_jenv, string, c_str)
