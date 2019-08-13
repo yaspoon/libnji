@@ -2,6 +2,7 @@
 
 from .jni import *
 from .javap import *
+from .pyjavap import *
 import json
 import os
 
@@ -69,7 +70,7 @@ def _nji_to_class(data):
     return clazz
 
 
-def _javap_to_class(data, classpath=None):
+def _javap_to_class(data, classpath=None, use_pyjavap=False):
     """Parse the output of javap for a java class and return a JniClass"""
 
     classname = data['class']
@@ -84,7 +85,10 @@ def _javap_to_class(data, classpath=None):
             classpath.append(extra)
 
     # parse the complete class
-    clazz_full = JavaP.parse_class(classname, classpath)
+    if(use_pyjavap):
+        clazz_full = PyJavaP.parse_class(classname, classpath)
+    else:
+        clazz_full = JavaP.parse_class(classname, classpath)
 
     # parse the partial class
     clazz_partial = _nji_to_class(data)
@@ -92,7 +96,7 @@ def _javap_to_class(data, classpath=None):
     return JniClass.reduce(clazz_full, clazz_partial)
 
 
-def parse(fd, classpath=None):
+def parse(fd, classpath=None, use_pyjavap = False):
     """Parse an NJI file and generate a JniClass based on the NJI file itself
     and any additional information that can be retrieved from javap"""
     
@@ -105,7 +109,7 @@ def parse(fd, classpath=None):
 
     # create class using javap
     else:
-        clazz = _javap_to_class(data, classpath=classpath)
+        clazz = _javap_to_class(data, classpath=classpath, use_pyjavap=use_pyjavap)
         
     if clazz:
         clazz.validate()

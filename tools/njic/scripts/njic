@@ -15,6 +15,7 @@ def main(argv):
     parser.add_argument('--output-h', '-o', help='Filename for output C header file')
     parser.add_argument('--output-c', '-O', help='Filename for output C source file')
     parser.add_argument('--include-prefix', '-i', help='Path prefix for the header #include in the output C source file')
+    parser.add_argument('--python-javap', '-n', help='Use built in javap instead of shelling out', action='store_true')
     parser.add_argument('source', type=argparse.FileType(mode='rb'), help='NJI source file')
 
     args = parser.parse_args(argv[1:])
@@ -41,9 +42,13 @@ def main(argv):
     else:
         include = os.path.basename(args.output_h)
 
+    use_pyjavap = False
+    if args.python_javap:
+        use_pyjavap = True
+
     # parse
     try:
-        clazz = nji.parse(args.source, classpath=args.classpath)
+        clazz = nji.parse(args.source, classpath=args.classpath, use_pyjavap=use_pyjavap)
     except Exception as e:
         sys.stderr.write('%s\n' % e)
         return -2
