@@ -1,6 +1,6 @@
 from ctypes import *
 from .jenv import *
-from . import Class
+from . import ClassUtils
 from . import Object
 from . import Executable
 from . import Modifier
@@ -15,7 +15,7 @@ class Constructor(Executable.Executable, Modifier.Modifier):
         Executable.Executable.__init__(self, class_name, obj)
         Modifier.Modifier.__init__(self)
         if(not Constructor._isInit):
-            Constructor._Class = Class.fromFullyQualifiedName(class_name)
+            Constructor._Class = ClassUtils.fromFullyQualifiedName(class_name)
             if(not Constructor._Class):
                 print("Failed to find Constructor class")
             Constructor._getName = GetMethodID(Constructor._Class.getClass(), "getName", "()Ljava/lang/String;")
@@ -28,7 +28,7 @@ class Constructor(Executable.Executable, Modifier.Modifier):
         return CallObjectMethod(self.obj, Constructor._getName)
 
     def getClass(self):
-        return Class.fromJclass(super(Constructor, self).getClass())
+        return ClassUtils.fromJclass(super(Constructor, self).getClass())
 
     def descriptor(self):
         desc = super(Constructor, self).descriptor()

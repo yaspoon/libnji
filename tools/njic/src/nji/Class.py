@@ -5,6 +5,7 @@ from . import String
 from . import Object
 from . import Method
 from . import Field
+from . import ClassUtils
 
 class Class(object):
     #jmethodIDs
@@ -187,29 +188,3 @@ def _getName(class_obj):
 def _getComponentType(class_obj):
     class_init()
     return fromJclass(CallObjectMethod(class_obj, Class._getComponentType))
-
-def fromFullyQualifiedName(fqname):
-    class_init()
-    self = Class()
-    self.fqname = fqname
-    self.Class = FindClass(self.fqname)
-    if(not self.Class):
-        raise IOError("Failed to find class:{}".format(fqname))
-    self.constructors = None
-    self.methods = None
-    self.fields = None
-    return self
-
-def fromJclass(class_obj):
-    class_init()
-    self = Class()
-
-    fqname = str(_getName(class_obj))
-    if(not _isArray(class_obj) and not _isPrimitive(class_obj)):
-            fqname = "L{};".format(fqname)
-            fqname = fqname.replace('.', '/')
-
-    self.fqname = fqname
-    self.Class = class_obj
-
-    return self

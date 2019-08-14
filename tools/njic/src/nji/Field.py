@@ -1,7 +1,7 @@
 from ctypes import *
 from .jenv import *
 from . import Object
-from . import Class
+from . import ClassUtils
 from . import Executable
 from . import String
 from . import Modifier
@@ -17,7 +17,7 @@ class Field(Object.Object, Modifier.Modifier):
         Object.Object.__init__(self, obj)
         Modifier.Modifier.__init__(self)
         if(not Field._isInit):
-            Field._Class = Class.fromFullyQualifiedName(class_name)
+            Field._Class = ClassUtils.fromFullyQualifiedName(class_name)
             if(not Field._Class):
                 print("Failed to find Field class")
             Field._getName = GetMethodID(Field._Class.getClass(), "getName", "()Ljava/lang/String;")
@@ -32,7 +32,7 @@ class Field(Object.Object, Modifier.Modifier):
         return String.String(CallObjectMethod(self.obj, Field._getName))
 
     def getType(self):
-        return Class.fromJclass(CallObjectMethod(self.obj, Field._getType))
+        return ClassUtils.fromJclass(CallObjectMethod(self.obj, Field._getType))
 
     def descriptor(self):
         return self.getType().internalTypeSignature()

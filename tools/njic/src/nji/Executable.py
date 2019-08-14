@@ -1,6 +1,6 @@
 from ctypes import *
 from .jenv import *
-from . import Class
+from . import ClassUtils
 from . import Object
 
 class Executable(Object.Object):
@@ -9,7 +9,7 @@ class Executable(Object.Object):
     #java-7 doesn't have the Executable class so this is retroactively porting it for that JVM after implementing it originally on java-8
     def __init__(self, class_name, obj):
         super(Executable, self).__init__(obj)
-        self._Class = Class.fromFullyQualifiedName(class_name)
+        self._Class = ClassUtils.fromFullyQualifiedName(class_name)
         if(not self._Class):
             print("Failed to find class")
         self._getParameterTypes = GetMethodID(self._Class.getClass(), "getParameterTypes", "()[Ljava/lang/Class;")
@@ -32,7 +32,7 @@ class Executable(Object.Object):
             length = GetArrayLength(param_types)
             for i in range(length):
                 param_type = GetObjectArrayElement(param_types, i)
-                self.parameter_types.append(Class.fromJclass(param_type))
+                self.parameter_types.append(ClassUtils.fromJclass(param_type))
         return self.parameter_types
 
     def descriptor(self):

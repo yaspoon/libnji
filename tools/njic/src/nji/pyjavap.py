@@ -1,7 +1,7 @@
 #!/usr/bin/python
 
 from .jni import *
-from . import Class
+from . import ClassUtils
 from .jenv import *
 
 
@@ -18,7 +18,7 @@ class PyJavaP(object):
         SetClassPath(classpath)
 
         fqname = "L{};".format(classname).replace('.', '/')
-        cls = Class.fromFullyQualifiedName(fqname)
+        cls = ClassUtils.fromFullyQualifiedName(fqname)
 
         if(str(cls.getName()) != clazz.name):
             raise IOError('Bad Class name')

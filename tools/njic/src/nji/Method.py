@@ -1,7 +1,7 @@
 from ctypes import *
 from .jenv import *
 from . import Object
-from . import Class
+from . import ClassUtils
 from . import Executable
 from . import String
 from . import Modifier
@@ -17,7 +17,7 @@ class Method(Executable.Executable, Modifier.Modifier):
         Executable.Executable.__init__(self, class_name, obj)
         Modifier.Modifier.__init__(self)
         if(not Method._isInit):
-            Method._Class = Class.fromFullyQualifiedName(class_name)
+            Method._Class = ClassUtils.fromFullyQualifiedName(class_name)
             if(not Method._Class):
                 print("Failed to find Method class")
             Method._getName = GetMethodID(Method._Class.getClass(), "getName", "()Ljava/lang/String;")
@@ -32,7 +32,7 @@ class Method(Executable.Executable, Modifier.Modifier):
         return String.String(CallObjectMethod(self.obj, Method._getName))
 
     def getReturnType(self):
-        return Class.fromJclass(CallObjectMethod(self.obj, Method._getReturnType))
+        return ClassUtils.fromJclass(CallObjectMethod(self.obj, Method._getReturnType))
 
     def descriptor(self):
         desc = super(Method, self).descriptor()
