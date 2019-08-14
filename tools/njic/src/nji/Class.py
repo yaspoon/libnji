@@ -105,7 +105,7 @@ class Class(object):
         return str(name).replace(".", "/")
 
     def internalTypeSignature(self):
-        its = str(self.getName())
+        its = str(self.getName()).replace(".", "/")
         if(self.isPrimitive()):
             if(its == "boolean"):
                 its = "Z"
@@ -126,7 +126,7 @@ class Class(object):
             elif(its == "void"):
                 its = "V"
         elif(not self.isArray()):
-            its = "L{};".format(its).replace(".", "/")
+            its = "L{};".format(its)
 
         return its 
 
