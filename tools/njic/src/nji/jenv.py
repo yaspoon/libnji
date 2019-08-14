@@ -414,10 +414,15 @@ def find_libjvm():
 
 def SetClassPath(classpath):
     built_classpath = ""
-    for path in classpath:
-        built_classpath = built_classpath + path
-        if(len(classpath) > 1):
-            built_classpath = built_classpath + ':'
+    if(isinstance(classpath, list)):
+        for path in classpath:
+            built_classpath = built_classpath + path
+            if(len(classpath) > 1):
+                built_classpath = built_classpath + ':'
+    elif(isinstance(classpath, str)):
+        built_classpath = classpath
+    else:
+        raise IOError("Unknown classpath type:{}".format(str(type(classpath))))
     Jni.classpath = built_classpath
 
 #Do init
