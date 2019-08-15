@@ -4,6 +4,7 @@ import os
 
 #__all__ = ['JavaVMOption', 'JavaVMInitArgs', 'jobject', 'jclass', 'jthrowable', "jstring", "jarray", "jobjectArray", "jmethodID", "jfieldID", "jvalue", "JNINativeInterface", "JNIEnv", "Jni"]
 
+JNI_OK = c_int(0)
 '''
 typedef struct JavaVMOption {
     char *optionString;  /* the option as a string in the default platform encoding */
@@ -13,6 +14,40 @@ typedef struct JavaVMOption {
 class JavaVMOption(Structure):
     _fields_ = [("optionString", c_char_p),
                 ("extraInfo", c_void_p)]
+
+'''
+struct JNIInvokeInterface_ {
+    void *reserved0;
+    void *reserved1;
+    void *reserved2;
+
+    jint (JNICALL *DestroyJavaVM)(JavaVM *vm);
+
+    jint (JNICALL *AttachCurrentThread)(JavaVM *vm, void **penv, void *args);
+
+    jint (JNICALL *DetachCurrentThread)(JavaVM *vm);
+
+    jint (JNICALL *GetEnv)(JavaVM *vm, void **penv, jint version);
+
+    jint (JNICALL *AttachCurrentThreadAsDaemon)(JavaVM *vm, void **penv, void *args);
+};
+'''
+
+class  JNIInvokeInterface(Structure):
+    pass
+
+JavaVM = POINTER(JNIInvokeInterface)
+
+JNIInvokeInterface._fields_ = [
+            ("reserved0", c_void_p),
+            ("reserved1", c_void_p),
+            ("reserved2", c_void_p),
+            ("DestroyJavaVM", CFUNCTYPE(c_int, POINTER(JavaVM))),
+            ("AttachCurrentThread", CFUNCTYPE(c_int, POINTER(JavaVM), POINTER(c_void_p), c_void_p)),
+            ("DetachCurrentThread", CFUNCTYPE(c_int, POINTER(JavaVM))),
+            ("GetEnv", CFUNCTYPE(c_int, POINTER(JavaVM), POINTER(c_void_p), c_int)),
+            ("AttachCurrentThreadAsDaemon", CFUNCTYPE(POINTER(JavaVM), POINTER(c_void_p), c_void_p))
+           ]
 
 '''
 typedef struct JavaVMInitArgs {
@@ -366,14 +401,29 @@ JNINativeInterface._fields_ = [
             ("GetObjectRefType", c_void_p) #232
         ]
 
-class Jni:
-    library_path = None
-    isInit = False
-    libjvm = None
-    p_jenv = POINTER(JNIEnv)
-    jenv = JNIEnv
-    jvm = c_void_p
-    classpath = None
+class __Jni:
+    def __init__(self):
+        self.library_path = None
+        self.isInit = False
+        self.libjvm = None
+        self.p_jenv = None
+        self.jenv = None
+        self.p_jvm = None
+        self.jvm = None
+        self.classpath = None
+
+    def __del__(self):
+        if(self.isInit):
+            ret = self.jvm.DetachCurrentThread(self.p_jvm) 
+            if(ret == 0):
+                ret = self.jvm.DestroyJavaVM(self.p_jvm)
+                if(ret != 0):
+                    raise IOError("Failed to destroy JVM error:{}".format(ret))
+            else:
+                raise IOError("Failed to detach current JVM thread error:{}".format(ret))
+            self.isInit = False
+
+Jni = __Jni()
 
 #Do some hacky path finding to try and find where libjvm.so lives
 def find_libjvm():
@@ -436,10 +486,10 @@ def init():
 
         JNI_CreateJavaVM = getattr(Jni.libjvm, 'JNI_CreateJavaVM')
 
-        JNI_CreateJavaVM.argtypes = [POINTER(c_void_p), POINTER(c_void_p), POINTER(JavaVMInitArgs)]
+        JNI_CreateJavaVM.argtypes = [POINTER(POINTER(JavaVM)), POINTER(c_void_p), POINTER(JavaVMInitArgs)]
         JNI_CreateJavaVM.restype = c_int
 
-        jvm = c_void_p(None)
+        p_jvm = cast(pointer(c_void_p(None)), POINTER(JavaVM))
         p_jenv = c_void_p(None)
 
         vm_args = JavaVMInitArgs()
@@ -457,8 +507,13 @@ def init():
         vm_args.options = cast(vm_options, POINTER(JavaVMOption))
         vm_args.ignoreUnrecognized = c_bool(True)
 
-        ret = JNI_CreateJavaVM(byref(jvm), byref(p_jenv), byref(vm_args))
-        Jni.jvm = jvm
+        ret = JNI_CreateJavaVM(byref(p_jvm), byref(p_jenv), byref(vm_args))
+
+        Jni.p_jvm = p_jvm #JNIInvokeInterface **
+
+        #Get underlying object aka deref pointer
+        jvm = p_jvm.contents #JNIInvokeInterface *
+        Jni.jvm = jvm.contents #JNIInvokeInterface
 
         #Cast void pointer into JNIEnv* aka JNINativeInterface**
         Jni.p_jenv = cast(p_jenv, POINTER(JNIEnv))
