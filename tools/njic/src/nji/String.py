@@ -31,3 +31,7 @@ class String(str):
             return str(self) != str(other)
         else:
             return NotImplemented
+
+    def __del__(self):
+        if(self.jstring != None):
+            DeleteLocalRef(self.jstring)
