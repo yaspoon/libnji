@@ -18,6 +18,7 @@ class Executable(Object.Object):
         self._getDeclaringClass = GetMethodID(self._Class.getClass(), "getDeclaringClass", "()Ljava/lang/Class;")
         if(not self._getDeclaringClass):
             print("Failed to find getDeclaringClass")
+        self._descriptor = None
         if(not Executable._isInit):
             Executable._isInit = True
 
@@ -36,9 +37,10 @@ class Executable(Object.Object):
         return self.parameter_types
 
     def descriptor(self):
-        fqn = "("
-        types = self.getParameterTypes()
-        for t in types:
-            fqn = fqn + t.internalTypeSignature()
-        fqn = fqn + (")")
-        return fqn
+        if(not self._descriptor):
+            fqn = "("
+            types = self.getParameterTypes()
+            for t in types:
+                fqn = fqn + t.internalTypeSignature()
+            self._descriptor = fqn + (")")
+        return self._descriptor
