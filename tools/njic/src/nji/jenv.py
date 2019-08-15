@@ -525,15 +525,21 @@ def init():
 
 def GetVersion():
     init()
-    return Jni.jenv.GetVersion(Jni.p_jenv)
+    ret = Jni.jenv.GetVersion(Jni.p_jenv)
+    ExceptionClear()
+    return ret
 
 def FindClass(fqname):
     init()
-    return Jni.jenv.FindClass(Jni.p_jenv, fqname.encode('utf-8'))
+    ret = Jni.jenv.FindClass(Jni.p_jenv, fqname.encode('utf-8'))
+    ExceptionClear()
+    return ret
 
 def GetMethodID(Class, name, sig):
     init()
-    return Jni.jenv.GetMethodID(Jni.p_jenv, Class, name.encode('utf-8'), sig.encode('utf-8'))
+    ret = Jni.jenv.GetMethodID(Jni.p_jenv, Class, name.encode('utf-8'), sig.encode('utf-8'))
+    ExceptionClear()
+    return ret
 
 def CallObjectMethod(obj, method, *args):
     init()
@@ -542,22 +548,31 @@ def CallObjectMethod(obj, method, *args):
     meth.restype = jobject
     if(jvalues == None):
         meth.argtypes = [POINTER(JNIEnv), jobject, jmethodID]
-        return meth(Jni.p_jenv, obj, method)
+        ret = meth(Jni.p_jenv, obj, method)
+        ExceptionClear()
+        return ret
     else:
         meth.argtypes = [POINTER(JNIEnv), jobject, jmethodID, POINTER(ARRAY(jvalue, len(args)))]
-        return meth(Jni.p_jenv, obj, method, pointer(jvalues))
+        ret = meth(Jni.p_jenv, obj, method, pointer(jvalues))
+        ExceptionClear()
+        return ret
 
 def GetArrayLength(array):
     init()
-    return Jni.jenv.GetArrayLength(Jni.p_jenv, array)
+    ret = Jni.jenv.GetArrayLength(Jni.p_jenv, array)
+    ExceptionClear()
+    return ret
 
 def GetObjectArrayElement(array, index):
     init()
-    return Jni.jenv.GetObjectArrayElement(Jni.p_jenv, array, index)
+    ret = Jni.jenv.GetObjectArrayElement(Jni.p_jenv, array, index)
+    ExceptionClear()
+    return ret
 
 def GetStringUTFChars(string, isCopy):
     init()
     c_str = Jni.jenv.GetStringUTFChars(Jni.p_jenv, string, isCopy)
+    ExceptionClear()
     return c_str
 
 def CallIntMethod(obj, method, *args):
@@ -567,30 +582,42 @@ def CallIntMethod(obj, method, *args):
     meth.restype = c_int 
     if(jvalues == None):
         meth.argtypes = [POINTER(JNIEnv), jobject, jmethodID]
-        return meth(Jni.p_jenv, obj, method)
+        ret = meth(Jni.p_jenv, obj, method)
+        ExceptionClear()
+        return ret
     else:
         meth.argtypes = [POINTER(JNIEnv), jobject, jmethodID, POINTER(ARRAY(jvalue, len(args)))]
-        return meth(Jni.p_jenv, obj, method, pointer(jvalues))
+        ret = meth(Jni.p_jenv, obj, method, pointer(jvalues))
+        ExceptionClear()
+        return ret
 
 def CallBooleanMethod(obj, method, *args):
     init()
-    return Jni.jenv.CallBooleanMethod(Jni.p_jenv, obj, method)
+    ret = Jni.jenv.CallBooleanMethod(Jni.p_jenv, obj, method)
+    ExceptionClear()
+    return ret
 
 def ReleaseStringUTFChars(string, c_str):
     init()
     Jni.jenv.ReleaseStringUTFChars(Jni.p_jenv, string, c_str)
+    ExceptionClear()
 
 def GetStaticMethodID(Class, name, sig):
     init()
-    return Jni.jenv.GetStaticMethodID(Jni.p_jenv, Class, name.encode('utf-8'), sig.encode('utf-8'))
+    ret = Jni.jenv.GetStaticMethodID(Jni.p_jenv, Class, name.encode('utf-8'), sig.encode('utf-8'))
+    ExceptionClear()
+    return ret
 
 def NewString(c_string, length):
     init()
-    return Jni.jenv.NewString(Jni.p_jenv, c_string, length)
+    ret = Jni.jenv.NewString(Jni.p_jenv, c_string, length)
+    ExceptionClear()
+    return ret
 
 def DeleteLocalRef(obj):
     init()
     Jni.jenv.DeleteLocalRef(Jni.p_jenv, obj)
+    ExceptionClear()
 
 def CallStaticBooleanMethod(Class, method, *args):
     init()
@@ -599,10 +626,25 @@ def CallStaticBooleanMethod(Class, method, *args):
     meth.restype = c_bool 
     if(jvalues == None):
         meth.argtypes = [POINTER(JNIEnv), jclass, jmethodID]
-        return meth(Jni.p_jenv, Class, method)
+        ret = meth(Jni.p_jenv, Class, method)
+        ExceptionClear()
+        return ret
     else:
         meth.argtypes = [POINTER(JNIEnv), jclass, jmethodID, POINTER(ARRAY(jvalue, len(args)))]
-        return meth(Jni.p_jenv, Class, method, pointer(jvalues))
+        ret = meth(Jni.p_jenv, Class, method, pointer(jvalues))
+        ExceptionClear()
+        return ret
+
+def ExceptionOccurred():
+    init()
+    exception = Jni.jenv.ExceptionOccurred(Jni.p_jenv)
+    if(exception):
+        print("Exception occurred")
+    return exception
+
+def ExceptionClear():
+    init()
+    Jni.jenv.ExceptionClear(Jni.p_jenv)
 
 def argsToJvalueArray(args):
     length = len(args)
