@@ -19,7 +19,9 @@ class Class(object):
     _isArray = None
     _getName = None
     _getComponentType = None
+    _count = 0
 
+    #Class is not directly constructed instead fromJclass or fromFqn does it
     def __init__(self):
         class_init()
         self.fqname = None
@@ -27,9 +29,29 @@ class Class(object):
         self.constructors = None
         self.methods = None
         self.fields = None
+        Class._count = Class._count + 1
 
-    def __str__(self):
-        pass
+    def __del__(self):
+        if(self.fields):
+            for field in self.fields:
+                del(field)
+            self.fields = None
+        if(self.methods):
+            for meth in self.methods:
+                del(meth)
+            self.methods = None
+        if(self.constructors):
+            for con in self.constructors:
+                del(con)
+            self.constructors = None
+        if(self.Class):
+            DeleteLocalRef(self.Class)
+            self.Class = None
+        if(Class._isInit and Class._count == 1): #Last Class clean up static java vars
+            DeleteLocalRef(Class._Class)
+            Class._Class = None
+            Class._isInit = False
+        Class._count = Class._count - 1
 
     #Creates python Constructor objects that wrap the underlying java.lang.reflect.Constructor
     def getDeclaredConstructors(self):
@@ -44,6 +66,7 @@ class Class(object):
                 for i in range(length):
                     constructor = GetObjectArrayElement(constructors, i)
                     self.constructors.append(Constructor.Constructor(constructor))
+                DeleteLocalRef(constructors)
         return self.constructors
 
     #Creates python Method objects that wrap the underlying java.lang.reflect.Method
@@ -59,6 +82,7 @@ class Class(object):
                 for i in range(length):
                     method = GetObjectArrayElement(methods, i)
                     self.methods.append(Method.Method(method))
+                DeleteLocalRef(methods)
         return self.methods
 
     #Creates python Field objects that wrap the underlying java.lang.reflect.Field

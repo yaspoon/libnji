@@ -7,8 +7,10 @@ class Modifier(object):
     _isStatic = None
     _getModifiers = None
     _Member = None
+    _count = 0
 
     def __init__(self):
+        Modifier._count = Modifier._count + 1
         if(not Modifier._isInit):
             Modifier._Modifier = ClassUtils.fromFullyQualifiedName("Ljava/lang/reflect/Modifier;")
             if(not Modifier._Modifier):
@@ -23,6 +25,15 @@ class Modifier(object):
             if(not Modifier._getModifiers):
                 print("Failed to find getModifiers")
             Modifier._isInit = True
+
+    def __del__(self):
+        if(Modifier._isInit and Modifier._count == 1):
+            del(Modifier._Modifier)
+            Modifier._Modifier = None
+            del(Modifier._Member)
+            Modifier._Member = None
+            Modifier._isInit = False
+        Modifier._count = Modifier._count - 1
 
     def isStatic(self):
         modifiers = self.getModifiers()

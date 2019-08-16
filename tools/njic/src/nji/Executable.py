@@ -22,6 +22,13 @@ class Executable(Object.Object):
         if(not Executable._isInit):
             Executable._isInit = True
 
+    def __del__(self):
+        super(Executable, self).__del__()
+        if(self._Class):
+            del(self._Class)
+        if(self._descriptor):
+            self._descriptor = None
+
     def getDeclaringClass(self):
         #return Class.fromJclass(CallObjectMethod(self.obj, Executable._getDeclaringClass))
         return Class.fromJclass(CallObjectMethod(self.obj, self._getDeclaringClass))

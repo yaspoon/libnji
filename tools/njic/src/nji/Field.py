@@ -2,7 +2,6 @@ from ctypes import *
 from .jenv import *
 from . import Object
 from . import ClassUtils
-from . import Executable
 from . import String
 from . import Modifier
 
@@ -11,8 +10,10 @@ class Field(Object.Object, Modifier.Modifier):
     _Class = None
     _getName = None
     _getType = None
+    _count = 0
 
     def __init__(self, obj):
+        Field._count = Field._count + 1
         class_name = "Ljava/lang/reflect/Field;"
         Object.Object.__init__(self, obj)
         Modifier.Modifier.__init__(self)
@@ -27,6 +28,14 @@ class Field(Object.Object, Modifier.Modifier):
             if(not Field._getType):
                 print("Failed to find getType")
             Field._isInit = True
+
+    def __del__(self):
+        Modifier.Modifier.__del__(self)
+        if(Field._isInit and Field._count == 1):
+            del(Field._Class)
+            Field._Class = None
+            Field._isInit = False
+        Field._count = Field._count - 1
 
     def getName(self):
         return String.String(CallObjectMethod(self.obj, Field._getName))

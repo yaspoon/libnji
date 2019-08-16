@@ -9,9 +9,11 @@ class Constructor(Executable.Executable, Modifier.Modifier):
     _isInit = False
     _getName = None
     _Class = None
+    _count = 0
 
     def __init__(self, obj):
         class_name = "Ljava/lang/reflect/Constructor;"
+        Constructor._count = Constructor._count + 1
         Executable.Executable.__init__(self, class_name, obj)
         Modifier.Modifier.__init__(self)
         if(not Constructor._isInit):
@@ -23,6 +25,16 @@ class Constructor(Executable.Executable, Modifier.Modifier):
                 print("Failed to find getName")
             Constructor._isInit = True
             self.parameter_types = None
+
+    def __del__(self):
+        Modifier.Modifier.__del__(self)
+        Executable.Executable.__del__(self)
+        if(Constructor._isInit and Constructor._count == 1):
+            del(Constructor._Class)
+            Constructor._Class = None
+            Constructor._jenv = None
+            Constructor._isInit = False
+        Constructor._count = Constructor._count - 1
 
     def getName(self):
         return CallObjectMethod(self.obj, Constructor._getName)

@@ -11,8 +11,10 @@ class Method(Executable.Executable, Modifier.Modifier):
     _Class = None
     _getName = None
     _getReturnType = None
+    _count = 0
 
     def __init__(self, obj):
+        Method._count = Method._count + 1
         class_name = "Ljava/lang/reflect/Method;"
         Executable.Executable.__init__(self, class_name, obj)
         Modifier.Modifier.__init__(self)
@@ -27,6 +29,15 @@ class Method(Executable.Executable, Modifier.Modifier):
             if(not Method._getReturnType):
                 print("Failed to find getReturnType")
             Method._isInit = True
+
+    def __del__(self):
+        Modifier.Modifier.__del__(self)
+        Executable.Executable.__del__(self)
+        if(Method._isInit and Method._count == 1):
+            del(Method._Class)
+            Method._Class = None
+            Method._isInit = False
+        Method._count = Method._count - 1
 
     def getName(self):
         return String.String(CallObjectMethod(self.obj, Method._getName))

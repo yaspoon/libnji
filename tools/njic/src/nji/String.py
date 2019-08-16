@@ -35,3 +35,4 @@ class String(str):
     def __del__(self):
         if(self.jstring != None):
             DeleteLocalRef(self.jstring)
+            self.jstring = None
