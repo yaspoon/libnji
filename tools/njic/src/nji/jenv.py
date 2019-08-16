@@ -506,13 +506,11 @@ def init():
         ret = JNI_CreateJavaVM(pointer(p_jvm), pointer(p_jenv), byref(vm_args))
 
         Jni.p_jvm = p_jvm #JNIInvokeInterface **
-
         #Get underlying object aka deref pointer
         jvm = p_jvm.contents #JNIInvokeInterface *
         Jni.jvm = jvm.contents #JNIInvokeInterface
 
-        #Cast void pointer into JNIEnv* aka JNINativeInterface**
-        Jni.p_jenv = cast(p_jenv, POINTER(JNIEnv))
+        Jni.p_jenv = p_jenv
 
         #Get underlying object aka deref pointer
         jenv = Jni.p_jenv.contents # JNINativeInterface *
