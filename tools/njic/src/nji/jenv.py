@@ -414,13 +414,9 @@ class __Jni:
 
     def __del__(self):
         if(self.isInit):
-            ret = self.jvm.DetachCurrentThread(self.p_jvm) 
-            if(ret == 0):
-                ret = self.jvm.DestroyJavaVM(self.p_jvm)
-                if(ret != 0):
-                    raise IOError("Failed to destroy JVM error:{}".format(ret))
-            else:
-                raise IOError("Failed to detach current JVM thread error:{}".format(ret))
+            ret = self.jvm.DestroyJavaVM(self.p_jvm)
+            if(ret != 0):
+                raise IOError("Failed to destroy JVM error:{}".format(ret))
             self.isInit = False
 
 Jni = __Jni()
