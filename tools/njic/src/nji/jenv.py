@@ -482,11 +482,11 @@ def init():
 
         JNI_CreateJavaVM = getattr(Jni.libjvm, 'JNI_CreateJavaVM')
 
-        JNI_CreateJavaVM.argtypes = [POINTER(POINTER(JavaVM)), POINTER(c_void_p), POINTER(JavaVMInitArgs)]
+        JNI_CreateJavaVM.argtypes = [POINTER(POINTER(JavaVM)), POINTER(POINTER(JNIEnv)), POINTER(JavaVMInitArgs)]
         JNI_CreateJavaVM.restype = c_int
 
-        p_jvm = cast(pointer(c_void_p(None)), POINTER(JavaVM))
-        p_jenv = c_void_p(None)
+        p_jvm = cast(c_void_p(None), POINTER(JavaVM))
+        p_jenv = cast(c_void_p(None), POINTER(JNIEnv))
 
         vm_args = JavaVMInitArgs()
         vm_args.version = 0x00010004
@@ -503,7 +503,7 @@ def init():
         vm_args.options = cast(vm_options, POINTER(JavaVMOption))
         vm_args.ignoreUnrecognized = c_bool(True)
 
-        ret = JNI_CreateJavaVM(byref(p_jvm), byref(p_jenv), byref(vm_args))
+        ret = JNI_CreateJavaVM(pointer(p_jvm), pointer(p_jenv), byref(vm_args))
 
         Jni.p_jvm = p_jvm #JNIInvokeInterface **
 
