@@ -1,6 +1,7 @@
 from ctypes import *
 
 import os
+import threading
 
 #__all__ = ['JavaVMOption', 'JavaVMInitArgs', 'jobject', 'jclass', 'jthrowable', "jstring", "jarray", "jobjectArray", "jmethodID", "jfieldID", "jvalue", "JNINativeInterface", "JNIEnv", "Jni"]
 
@@ -37,18 +38,6 @@ class  JNIInvokeInterface(Structure):
     pass
 
 JavaVM = POINTER(JNIInvokeInterface)
-
-JNIInvokeInterface._fields_ = [
-            ("reserved0", c_void_p),
-            ("reserved1", c_void_p),
-            ("reserved2", c_void_p),
-            ("DestroyJavaVM", CFUNCTYPE(c_int, POINTER(JavaVM))),
-            ("AttachCurrentThread", CFUNCTYPE(c_int, POINTER(JavaVM), POINTER(c_void_p), c_void_p)),
-            ("DetachCurrentThread", CFUNCTYPE(c_int, POINTER(JavaVM))),
-            ("GetEnv", CFUNCTYPE(c_int, POINTER(JavaVM), POINTER(c_void_p), c_int)),
-            ("AttachCurrentThreadAsDaemon", CFUNCTYPE(POINTER(JavaVM), POINTER(c_void_p), c_void_p))
-           ]
-
 '''
 typedef struct JavaVMInitArgs {
     jint version;
@@ -95,6 +84,18 @@ class JNINativeInterface(Structure):
     pass
 
 JNIEnv = POINTER(JNINativeInterface)
+
+JNIInvokeInterface._fields_ = [
+            ("reserved0", c_void_p),
+            ("reserved1", c_void_p),
+            ("reserved2", c_void_p),
+            ("DestroyJavaVM", CFUNCTYPE(c_int, POINTER(JavaVM))),
+            ("AttachCurrentThread", CFUNCTYPE(c_int, POINTER(JavaVM), POINTER(POINTER(JNIEnv)), c_void_p)),
+            ("DetachCurrentThread", CFUNCTYPE(c_int, POINTER(JavaVM))),
+            ("GetEnv", CFUNCTYPE(c_int, POINTER(JavaVM), POINTER(POINTER(JNIEnv)), c_int)),
+            ("AttachCurrentThreadAsDaemon", CFUNCTYPE(POINTER(JavaVM), POINTER(c_void_p), c_void_p))
+           ]
+
 
 JNINativeInterface._fields_ = [
             ("reserved0", c_void_p), #0
@@ -401,25 +402,34 @@ JNINativeInterface._fields_ = [
             ("GetObjectRefType", c_void_p) #232
         ]
 
+lock = threading.Lock()
 class __Jni:
     def __init__(self):
-        self.library_path = None
-        self.isInit = False
-        self.libjvm = None
-        self.p_jenv = None
-        self.jenv = None
+        global lock
+        self.lock = lock
         self.p_jvm = None
         self.jvm = None
+        self.library_path = None
+        self.libjvm = None
         self.classpath = None
 
     def __del__(self):
-        if(self.isInit):
-            ret = self.jvm.DestroyJavaVM(self.p_jvm)
-            if(ret != 0):
-                raise IOError("Failed to destroy JVM error:{}".format(ret))
-            self.isInit = False
+        self.lock.acquire()
+        try:
+            if(self.jvm and self.p_jvm): 
+                ret = self.jvm.DestroyJavaVM(self.p_jvm)
+                if(ret != 0):
+                    raise IOError("Failed to destroy JVM error:{}".format(ret))
+                self.jvm = None
+                self.p_jvm = None
+        finally:
+            self.lock.release()
 
 Jni = __Jni()
+
+def getJni():
+    #global Jni
+    return Jni
 
 #Do some hacky path finding to try and find where libjvm.so lives
 def find_libjvm():
@@ -434,9 +444,7 @@ def find_libjvm():
     if(java_home):
         for suffix in suffix_paths:
             path = os.path.join(java_home, suffix)
-            #print("Checking for libjvm.so at:{}".format(path))
             if(os.path.exists(path) and os.path.isfile(path)):
-                #print("Found libjvm.so")
                 libjvm = path
                 break
     else:
@@ -447,9 +455,7 @@ def find_libjvm():
                 prefix = '/usr/lib/jvm/java-{}-openjdk{}'.format(number, name_suffix)
                 for suffix in suffix_paths:
                     path = os.path.join(prefix, suffix)
-                    #print("Checking for libjvm.so at:{}".format(path))
                     if(os.path.exists(path) and os.path.isfile(path)):
-                        #print("Found libjvm.so")
                         libjvm = path
                         break
                 if(libjvm != None):
@@ -471,6 +477,7 @@ def SetClassPath(classpath):
         raise IOError("Unknown classpath type:{}".format(str(type(classpath))))
     Jni.classpath = built_classpath
 
+'''
 #Do init
 def init():
     if(not Jni.isInit):
@@ -516,129 +523,220 @@ def init():
         jenv = Jni.p_jenv.contents # JNINativeInterface *
         Jni.jenv = jenv.contents #JNINativeInterface
         Jni.isInit = True
+'''
+
+tl = threading.local()
+
+def get_jvm():
+    p_jvm = None
+    jvm = None
+    lock.acquire()
+    try:
+        if(Jni.jvm and Jni.p_jvm): 
+            p_jvm = Jni.p_jvm
+            jvm = Jni.jvm
+        else:
+            Jni.library_path = find_libjvm()
+            if(Jni.library_path is None):
+                raise IOError("Failed to find libjvm.so")
+
+            Jni.libjvm = cdll.LoadLibrary(Jni.library_path)
+
+            JNI_CreateJavaVM = getattr(Jni.libjvm, 'JNI_CreateJavaVM')
+
+            JNI_CreateJavaVM.argtypes = [POINTER(POINTER(JavaVM)), POINTER(POINTER(JNIEnv)), POINTER(JavaVMInitArgs)]
+            JNI_CreateJavaVM.restype = c_int
+
+            p_jvm = cast(c_void_p(None), POINTER(JavaVM))
+            p_jenv = cast(c_void_p(None), POINTER(JNIEnv))
+
+            vm_args = JavaVMInitArgs()
+            vm_args.version = 0x00010004
+            vm_args.nOptions = 0
+
+            vm_options = None
+            if(Jni.classpath):
+                vm_args.nOptions = 1
+                OneVmOption = JavaVMOption * 1
+                vm_options = OneVmOption()
+                vm_options[0].optionString = c_char_p('-Djava.class.path={}'.format(Jni.classpath).encode('utf-8'))
+
+
+            vm_args.options = cast(vm_options, POINTER(JavaVMOption))
+            vm_args.ignoreUnrecognized = c_bool(True)
+
+            ret = JNI_CreateJavaVM(pointer(p_jvm), pointer(p_jenv), byref(vm_args))
+
+            Jni.p_jvm = p_jvm #JNIInvokeInterface **
+            #Get underlying object aka deref pointer
+            jvm = p_jvm.contents #JNIInvokeInterface *
+            jvm = jvm.contents #JNIInvokeInterface
+            Jni.jvm = jvm
+
+    finally:
+        lock.release()
+
+    return p_jvm, jvm
+
+class ThreadLocalDestructor(object):
+    def __del__(self):
+        p_jvm, jvm = get_jvm()
+        if(p_jvm and jvm):
+            ret = jvm.DetachCurrentThread(p_jvm)
+            if(int(ret) != 0):
+                print("Failed to detach thread from JVM")
+        else:
+            raise IOError("Failed to get jvm")
+
+def get_jenv():
+    p_jenv = None
+    jenv = None
+    if(not getattr(tl, "p_jenv", None) or not getattr(tl, "jenv", None)):
+        p_jvm, jvm = get_jvm()
+        p_jenv = cast(c_void_p(None), POINTER(JNIEnv))
+
+        ret = jvm.GetEnv(p_jvm, pointer(p_jenv), 0x00010004)
+
+        if(int(ret) == -2): #Edetached
+            ret = jvm.AttachCurrentThread(p_jvm, pointer(p_jenv), None)
+            if(int(ret) != 0):
+                print("Failed to attach current thread")
+
+        tl.p_jenv = p_jenv
+
+        #Get underlying object aka deref pointer
+        jenv = p_jenv.contents # JNINativeInterface *
+        jenv = jenv.contents
+        tl.jenv = jenv #JNINativeInterface
+        tl.tld = ThreadLocalDestructor()
+    else:
+        p_jenv = tl.p_jenv
+        jenv = tl.jenv
+
+    return p_jenv, jenv
 
 def GetVersion():
-    init()
-    ret = Jni.jenv.GetVersion(Jni.p_jenv)
+    p_jenv, jenv = get_jenv()
+    ret = jenv.GetVersion(p_jenv)
     ExceptionClear()
     return ret
 
 def FindClass(fqname):
-    init()
-    ret = Jni.jenv.FindClass(Jni.p_jenv, fqname.encode('utf-8'))
+    p_jenv, jenv = get_jenv()
+    ret = jenv.FindClass(p_jenv, fqname.encode('utf-8'))
     ExceptionClear()
     return ret
 
 def GetMethodID(Class, name, sig):
-    init()
-    ret = Jni.jenv.GetMethodID(Jni.p_jenv, Class, name.encode('utf-8'), sig.encode('utf-8'))
+    p_jenv, jenv = get_jenv()
+    ret = jenv.GetMethodID(p_jenv, Class, name.encode('utf-8'), sig.encode('utf-8'))
     ExceptionClear()
     return ret
 
 def CallObjectMethod(obj, method, *args):
-    init()
+    p_jenv, jenv = get_jenv()
     jvalues = argsToJvalueArray(args)
-    meth = Jni.jenv.CallObjectMethodA
+    meth = jenv.CallObjectMethodA
     meth.restype = jobject
     if(jvalues == None):
         meth.argtypes = [POINTER(JNIEnv), jobject, jmethodID]
-        ret = meth(Jni.p_jenv, obj, method)
+        ret = meth(p_jenv, obj, method)
         ExceptionClear()
         return ret
     else:
         meth.argtypes = [POINTER(JNIEnv), jobject, jmethodID, POINTER(ARRAY(jvalue, len(args)))]
-        ret = meth(Jni.p_jenv, obj, method, pointer(jvalues))
+        ret = meth(p_jenv, obj, method, pointer(jvalues))
         ExceptionClear()
         return ret
 
 def GetArrayLength(array):
-    init()
-    ret = Jni.jenv.GetArrayLength(Jni.p_jenv, array)
+    p_jenv, jenv = get_jenv()
+    ret = jenv.GetArrayLength(p_jenv, array)
     ExceptionClear()
     return ret
 
 def GetObjectArrayElement(array, index):
-    init()
-    ret = Jni.jenv.GetObjectArrayElement(Jni.p_jenv, array, index)
+    p_jenv, jenv = get_jenv()
+    ret = jenv.GetObjectArrayElement(p_jenv, array, index)
     ExceptionClear()
     return ret
 
 def GetStringUTFChars(string, isCopy):
-    init()
-    c_str = Jni.jenv.GetStringUTFChars(Jni.p_jenv, string, isCopy)
+    p_jenv, jenv = get_jenv()
+    c_str = jenv.GetStringUTFChars(p_jenv, string, isCopy)
     ExceptionClear()
     return c_str
 
 def CallIntMethod(obj, method, *args):
-    init()
+    p_jenv, jenv = get_jenv()
     jvalues = argsToJvalueArray(args)
-    meth = Jni.jenv.CallIntMethodA
+    meth = jenv.CallIntMethodA
     meth.restype = c_int 
     if(jvalues == None):
         meth.argtypes = [POINTER(JNIEnv), jobject, jmethodID]
-        ret = meth(Jni.p_jenv, obj, method)
+        ret = meth(p_jenv, obj, method)
         ExceptionClear()
         return ret
     else:
         meth.argtypes = [POINTER(JNIEnv), jobject, jmethodID, POINTER(ARRAY(jvalue, len(args)))]
-        ret = meth(Jni.p_jenv, obj, method, pointer(jvalues))
+        ret = meth(p_jenv, obj, method, pointer(jvalues))
         ExceptionClear()
         return ret
 
 def CallBooleanMethod(obj, method, *args):
-    init()
-    ret = Jni.jenv.CallBooleanMethod(Jni.p_jenv, obj, method)
+    p_jenv, jenv = get_jenv()
+    ret = jenv.CallBooleanMethod(p_jenv, obj, method)
     ExceptionClear()
     return ret
 
 def ReleaseStringUTFChars(string, c_str):
-    init()
-    Jni.jenv.ReleaseStringUTFChars(Jni.p_jenv, string, c_str)
+    p_jenv, jenv = get_jenv()
+    jenv.ReleaseStringUTFChars(p_jenv, string, c_str)
     ExceptionClear()
 
 def GetStaticMethodID(Class, name, sig):
-    init()
-    ret = Jni.jenv.GetStaticMethodID(Jni.p_jenv, Class, name.encode('utf-8'), sig.encode('utf-8'))
+    p_jenv, jenv = get_jenv()
+    ret = jenv.GetStaticMethodID(p_jenv, Class, name.encode('utf-8'), sig.encode('utf-8'))
     ExceptionClear()
     return ret
 
 def NewString(c_string, length):
-    init()
-    ret = Jni.jenv.NewString(Jni.p_jenv, c_string, length)
+    p_jenv, jenv = get_jenv()
+    ret = jenv.NewString(p_jenv, c_string, length)
     ExceptionClear()
     return ret
 
 def DeleteLocalRef(obj):
-    init()
-    Jni.jenv.DeleteLocalRef(Jni.p_jenv, obj)
+    p_jenv, jenv = get_jenv()
+    jenv.DeleteLocalRef(p_jenv, obj)
     ExceptionClear()
 
 def CallStaticBooleanMethod(Class, method, *args):
-    init()
+    p_jenv, jenv = get_jenv()
     jvalues = argsToJvalueArray(args)
-    meth = Jni.jenv.CallStaticBooleanMethodA 
+    meth = jenv.CallStaticBooleanMethodA 
     meth.restype = c_bool 
     if(jvalues == None):
         meth.argtypes = [POINTER(JNIEnv), jclass, jmethodID]
-        ret = meth(Jni.p_jenv, Class, method)
+        ret = meth(p_jenv, Class, method)
         ExceptionClear()
         return ret
     else:
         meth.argtypes = [POINTER(JNIEnv), jclass, jmethodID, POINTER(ARRAY(jvalue, len(args)))]
-        ret = meth(Jni.p_jenv, Class, method, pointer(jvalues))
+        ret = meth(p_jenv, Class, method, pointer(jvalues))
         ExceptionClear()
         return ret
 
 def ExceptionOccurred():
-    init()
-    exception = Jni.jenv.ExceptionOccurred(Jni.p_jenv)
+    p_jenv, jenv = get_jenv()
+    exception = jenv.ExceptionOccurred(p_jenv)
     if(exception):
         print("Exception occurred")
     return exception
 
 def ExceptionClear():
-    init()
-    Jni.jenv.ExceptionClear(Jni.p_jenv)
+    p_jenv, jenv = get_jenv()
+    jenv.ExceptionClear(p_jenv)
 
 def argsToJvalueArray(args):
     length = len(args)
