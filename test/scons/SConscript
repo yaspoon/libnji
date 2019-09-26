@@ -1,0 +1,13 @@
+# vi:syntax=python
+
+Import('env')
+
+
+libnji = SConscript(dirs=['lib'], exports='env')
+test = env.Program('test', [
+    'test.c',
+    Glob('*.nji')
+])
+
+
+Return('test')

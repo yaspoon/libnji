@@ -1,0 +1,7 @@
+{
+    "class": "java/lang/reflect/Method",
+    "methods": [
+        { "name": "getGenericExceptionTypes" },
+        { "name": "getGenericParameterTypes" }
+    ]
+}
