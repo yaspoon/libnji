@@ -6,6 +6,7 @@ from .pyjavap import *
 import json
 import os
 import io
+import sys
 from multiprocessing import Pool
 from multiprocessing import Process
 from multiprocessing import Manager
@@ -131,9 +132,27 @@ def process_parse(filebytes, classpath=None, use_pyjavap = True):
         clazz = _internal_parse(fd, classpath, use_pyjavap)
     return clazz
 
+pool = None
 #Will use multiprocessing for the use_pyjavap=True case to avoid GIL contention when multithreading
-pool = Pool(processes=4)
-def parse(fd, classpath=None, use_pyjavap = False):
+def parse(fd, classpath=None, use_pyjavap = False, SCONS_AWEFUL_HACK = False):
+    global pool
+    if pool is None:
+        if SCONS_AWEFUL_HACK is True:
+            #Oh god scons2 why do you have to be this way...
+            #See https://stackoverflow.com/questions/24453387/scons-attributeerror-builtin-function-or-method-object-has-no-attribute-disp
+            #This is only needed on Ubuntu 18.04s SCons 3.0.1 which does nasty things to pickle and cPickle SIGH
+            import imp
+
+            del sys.modules['pickle']
+            del sys.modules['cPickle']
+
+            sys.modules['pickle'] = imp.load_module('pickle', *imp.find_module('pickle'))
+            sys.modules['cPickle'] = imp.load_module('cPickle', *imp.find_module('cPickle'))
+
+            import pickle
+            import cPickle
+        pool = Pool(processes=4)
+
     clazz = None
     if use_pyjavap is True:
         filebytes = fd.read()

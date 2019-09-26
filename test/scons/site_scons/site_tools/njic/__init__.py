@@ -1,6 +1,8 @@
 import SCons.Tool
 import SCons.Util
+import SCons
 import os
+import sys
 from jinja2 import Template
 import nji
 
@@ -49,12 +51,33 @@ class pathopt(object):
         else:
             return []
 
+def get_scons_major_minor_rev(version):
+    nums = version.split('.')
+    major = int(nums[0])
+    minor = int(nums[1])
+    rev = 0
+    if len(nums) is 3:
+        rev = int(nums[2])
+    return (major, minor, rev)
+
+SCONS_AWEFUL_HACK = None
+
 def parse_nji(target, source, env):
     # parse
+    global SCONS_AWEFUL_HACK
+    if SCONS_AWEFUL_HACK is None:
+        version = get_scons_major_minor_rev(SCons.__version__)
+        if version <= (3, 0, 1):
+            print("Fixing up old scons with dirty hack")
+            SCONS_AWEFUL_HACK = True
+        else:
+            print("Scons is new and doesn't need dirty hack")
+            SCONS_AWEFUL_HACK = False
+
     if(len(source) > 0 and len(target) > 0):
         try:
             with open(SCons.Util.to_String(source[0]), 'rb') as source_fd:
-                clazz = nji.parse(source_fd, classpath=env['NJICCLASSPATH'], use_pyjavap=env['NJIUSEPYJAVAP'])
+                clazz = nji.parse(source_fd, classpath=env['NJICCLASSPATH'], use_pyjavap=env['NJIUSEPYJAVAP'], SCONS_AWEFUL_HACK=SCONS_AWEFUL_HACK)
         except Exception as e:
             sys.stderr.write('%s\n' % e)
             return -2
