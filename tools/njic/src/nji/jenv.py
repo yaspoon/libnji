@@ -402,33 +402,29 @@ JNINativeInterface._fields_ = [
             ("GetObjectRefType", c_void_p) #232
         ]
 
-lock = threading.Lock()
 class __Jni:
     def __init__(self):
-        global lock
-        self.lock = lock
         self.p_jvm = None
         self.jvm = None
+        self.p_jenv = None
+        self.jenv = None
         self.library_path = None
         self.libjvm = None
         self.classpath = None
 
     def __del__(self):
-        self.lock.acquire()
-        try:
-            if(self.jvm and self.p_jvm): 
-                ret = self.jvm.DestroyJavaVM(self.p_jvm)
-                if(ret != 0):
-                    raise IOError("Failed to destroy JVM error:{}".format(ret))
-                self.jvm = None
-                self.p_jvm = None
-        finally:
-            self.lock.release()
+        if(self.jvm and self.p_jvm): 
+            ret = self.jvm.DestroyJavaVM(self.p_jvm)
+            if(ret != 0):
+                raise IOError("Failed to destroy JVM error:{}".format(ret))
+            self.jvm = None
+            self.p_jvm = None
+            self.p_jenv = None
+            self.jenv = None
 
 Jni = __Jni()
 
 def getJni():
-    #global Jni
     return Jni
 
 #Do some hacky path finding to try and find where libjvm.so lives
@@ -477,10 +473,13 @@ def SetClassPath(classpath):
         raise IOError("Unknown classpath type:{}".format(str(type(classpath))))
     Jni.classpath = built_classpath
 
-'''
-#Do init
-def init():
-    if(not Jni.isInit):
+def get_jvm():
+    p_jvm = None
+    jvm = None
+    if(Jni.jvm and Jni.p_jvm): 
+        p_jvm = Jni.p_jvm
+        jvm = Jni.jvm
+    else:
         Jni.library_path = find_libjvm()
         if(Jni.library_path is None):
             raise IOError("Failed to find libjvm.so")
@@ -515,83 +514,15 @@ def init():
         Jni.p_jvm = p_jvm #JNIInvokeInterface **
         #Get underlying object aka deref pointer
         jvm = p_jvm.contents #JNIInvokeInterface *
-        Jni.jvm = jvm.contents #JNIInvokeInterface
-
-        Jni.p_jenv = p_jenv
-
-        #Get underlying object aka deref pointer
-        jenv = Jni.p_jenv.contents # JNINativeInterface *
-        Jni.jenv = jenv.contents #JNINativeInterface
-        Jni.isInit = True
-'''
-
-tl = threading.local()
-
-def get_jvm():
-    p_jvm = None
-    jvm = None
-    lock.acquire()
-    try:
-        if(Jni.jvm and Jni.p_jvm): 
-            p_jvm = Jni.p_jvm
-            jvm = Jni.jvm
-        else:
-            Jni.library_path = find_libjvm()
-            if(Jni.library_path is None):
-                raise IOError("Failed to find libjvm.so")
-
-            Jni.libjvm = cdll.LoadLibrary(Jni.library_path)
-
-            JNI_CreateJavaVM = getattr(Jni.libjvm, 'JNI_CreateJavaVM')
-
-            JNI_CreateJavaVM.argtypes = [POINTER(POINTER(JavaVM)), POINTER(POINTER(JNIEnv)), POINTER(JavaVMInitArgs)]
-            JNI_CreateJavaVM.restype = c_int
-
-            p_jvm = cast(c_void_p(None), POINTER(JavaVM))
-            p_jenv = cast(c_void_p(None), POINTER(JNIEnv))
-
-            vm_args = JavaVMInitArgs()
-            vm_args.version = 0x00010004
-            vm_args.nOptions = 0
-
-            vm_options = None
-            if(Jni.classpath):
-                vm_args.nOptions = 1
-                OneVmOption = JavaVMOption * 1
-                vm_options = OneVmOption()
-                vm_options[0].optionString = c_char_p('-Djava.class.path={}'.format(Jni.classpath).encode('utf-8'))
-
-
-            vm_args.options = cast(vm_options, POINTER(JavaVMOption))
-            vm_args.ignoreUnrecognized = c_bool(True)
-
-            ret = JNI_CreateJavaVM(pointer(p_jvm), pointer(p_jenv), byref(vm_args))
-
-            Jni.p_jvm = p_jvm #JNIInvokeInterface **
-            #Get underlying object aka deref pointer
-            jvm = p_jvm.contents #JNIInvokeInterface *
-            jvm = jvm.contents #JNIInvokeInterface
-            Jni.jvm = jvm
-
-    finally:
-        lock.release()
+        jvm = jvm.contents #JNIInvokeInterface
+        Jni.jvm = jvm
 
     return p_jvm, jvm
-
-class ThreadLocalDestructor(object):
-    def __del__(self):
-        p_jvm, jvm = get_jvm()
-        if(p_jvm and jvm):
-            ret = jvm.DetachCurrentThread(p_jvm)
-            if(int(ret) != 0):
-                print("Failed to detach thread from JVM")
-        else:
-            raise IOError("Failed to get jvm")
 
 def get_jenv():
     p_jenv = None
     jenv = None
-    if(not getattr(tl, "p_jenv", None) or not getattr(tl, "jenv", None)):
+    if(Jni.p_jenv is None and Jni.jenv is None):
         p_jvm, jvm = get_jvm()
         p_jenv = cast(c_void_p(None), POINTER(JNIEnv))
 
@@ -602,16 +533,15 @@ def get_jenv():
             if(int(ret) != 0):
                 print("Failed to attach current thread")
 
-        tl.p_jenv = p_jenv
+        Jni.p_jenv = p_jenv
 
         #Get underlying object aka deref pointer
         jenv = p_jenv.contents # JNINativeInterface *
         jenv = jenv.contents
-        tl.jenv = jenv #JNINativeInterface
-        tl.tld = ThreadLocalDestructor()
+        Jni.jenv = jenv #JNINativeInterface
     else:
-        p_jenv = tl.p_jenv
-        jenv = tl.jenv
+        p_jenv = Jni.p_jenv
+        jenv = Jni.jenv
 
     return p_jenv, jenv
 

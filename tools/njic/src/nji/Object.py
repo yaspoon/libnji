@@ -22,7 +22,6 @@ class Object(object):
         if(self.obj != None):
             DeleteLocalRef(self.obj)
         if(Object._isInit and Object._count == 1): #Last object clean up static java variables
-            print("Destroying Object class")
             DeleteLocalRef(Object._Class)
             Object._Class = None
             Object._isInit = False

@@ -5,6 +5,10 @@ from .javap import *
 from .pyjavap import *
 import json
 import os
+import io
+from multiprocessing import Pool
+from multiprocessing import Process
+from multiprocessing import Manager
 
 
 __all__ = [
@@ -96,10 +100,10 @@ def _javap_to_class(data, classpath=None, use_pyjavap=False):
     return JniClass.reduce(clazz_full, clazz_partial)
 
 
-def parse(fd, classpath=None, use_pyjavap = False):
+def _internal_parse(fd, classpath=None, use_pyjavap = False):
     """Parse an NJI file and generate a JniClass based on the NJI file itself
     and any additional information that can be retrieved from javap"""
-    
+
     data = json.load(fd)
     force = data.get('force', False)
 
@@ -115,4 +119,25 @@ def parse(fd, classpath=None, use_pyjavap = False):
         clazz.validate()
         clazz.uniqify()
 
+    return clazz
+
+#Used for multiprocessing with pyjavap
+def process_parse(filebytes, classpath=None, use_pyjavap = True):
+    clazz = None
+    encoded_bytes = filebytes
+    if not isinstance(filebytes, bytes):
+        encoded_bytes = filebytes.encode('utf8')
+    with io.BytesIO(encoded_bytes) as fd:
+        clazz = _internal_parse(fd, classpath, use_pyjavap)
+    return clazz
+
+#Will use multiprocessing for the use_pyjavap=True case to avoid GIL contention when multithreading
+pool = Pool(processes=4)
+def parse(fd, classpath=None, use_pyjavap = False):
+    clazz = None
+    if use_pyjavap is True:
+        filebytes = fd.read()
+        clazz = pool.apply(process_parse, args=(filebytes, classpath, use_pyjavap))
+    else:
+        clazz = _internal_parse(fd, classpath, use_pyjavap)
     return clazz
