@@ -3,6 +3,7 @@
 from .jni import *
 from .javap import *
 from .pyjavap import *
+from jinja2 import Template
 import json
 import os
 import io
@@ -16,6 +17,7 @@ __all__ = [
     'template_h',
     'template_c',
     'parse',
+    'parse_nji',
 ]
 
 
@@ -160,3 +162,47 @@ def parse(fd, classpath=None, use_pyjavap = False, SCONS_AWEFUL_HACK = False):
     else:
         clazz = _internal_parse(fd, classpath, use_pyjavap)
     return clazz
+
+
+def _internal_parse_nji(source, output_c, output_h, classpath=None, use_pyjavap=False):
+    # parse
+    try:
+        with open(source, 'rb') as source_fd:
+            clazz = _internal_parse(source_fd, classpath=classpath, use_pyjavap=use_pyjavap)
+    except Exception as e:
+        sys.stderr.write('%s\n' % e)
+        return -2
+
+    include = os.path.relpath(os.path.abspath(output_h), os.path.dirname(os.path.abspath(output_c)))
+
+    # output header
+    with open(template_h, 'rb') as template_h_fd:
+        jinja_template_h = Template(template_h_fd.read().decode('utf-8'))
+        with open(output_h, 'wb') as output_h:
+            output_h.write(jinja_template_h.render(cls=clazz).encode('utf-8'))
+    # output source
+    with open(template_c, 'rb') as template_c_fd:
+        jinja_template_c = Template(template_c_fd.read().decode('utf-8'))
+        with open(output_c, 'wb') as output_c:
+            output_c.write(jinja_template_c.render(cls=clazz, include=include).encode('utf-8'))
+
+def parse_nji(source, output_c, output_h, classpath=None, use_pyjavap=False, SCONS_AWEFUL_HACK=False):
+    global pool
+    if pool is None:
+        if SCONS_AWEFUL_HACK is True:
+            #Oh god scons2 why do you have to be this way...
+            #See https://stackoverflow.com/questions/24453387/scons-attributeerror-builtin-function-or-method-object-has-no-attribute-disp
+            #This is only needed on Ubuntu 18.04s SCons 3.0.1 which does nasty things to pickle and cPickle SIGH
+            import imp
+
+            del sys.modules['pickle']
+            del sys.modules['cPickle']
+
+            sys.modules['pickle'] = imp.load_module('pickle', *imp.find_module('pickle'))
+            sys.modules['cPickle'] = imp.load_module('cPickle', *imp.find_module('cPickle'))
+
+            import pickle
+            import cPickle
+        pool = Pool(processes=4)
+    #Use multi processing for both pyjavap and javap it speeds up the jinja templating
+    pool.apply(_internal_parse_nji, args=(source, output_c, output_h, classpath, use_pyjavap))
